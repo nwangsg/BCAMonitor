@@ -7,42 +7,41 @@ using Dapper;
 using System.Linq;
 using System.Net;
 using System.Net.Mail;
-using System.Threading.Tasks;
+using System.Threading;
 using OpenQA.Selenium;
 using OpenQA.Selenium.PhantomJS;
-using OpenQA.Selenium.Support.UI;
+using Timer = System.Timers.Timer;
+
 
 namespace BCAMonitor
 {
     public class Program
     {
         private static readonly IDbConnection Db = new SqlConnection(@"Data Source=.\localdb;Initial Catalog=wangningDB;Integrated Security=True");
+        private static readonly Timer DelayTimer = new Timer();
 
         private static void Main(string[] args)
         {
             //todo: construct loop or put on jenkins
+            DelayTimer.Interval = 3600000;
+            DelayTimer.Elapsed += (o, e) => MonitorBca();
+            MonitorBca();
             while (true)
             {
-                MonitorBca();
+
             }
         }
 
-        //private static void WebDriverWaitById(IWebDriver driver, string idToFind)
-        //{
-        //    WebDriverWait wait = new WebDriverWait(driver, new TimeSpan(0, 0, 5));
-        //    wait.Until(ExpectedConditions.VisibilityOfAllElementsLocatedBy(By.Id(idToFind)));
-        //}
-
         public static DataTable ConvertToDataTable<T>(IList<T> data)
         {
-            PropertyDescriptorCollection properties =
+            var properties =
                TypeDescriptor.GetProperties(typeof(T));
-            DataTable table = new DataTable();
+            var table = new DataTable();
             foreach (PropertyDescriptor prop in properties)
                 table.Columns.Add(prop.Name, Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType);
-            foreach (T item in data)
+            foreach (var item in data)
             {
-                DataRow row = table.NewRow();
+                var row = table.NewRow();
                 foreach (PropertyDescriptor prop in properties)
                     row[prop.Name] = prop.GetValue(item) ?? DBNull.Value;
                 table.Rows.Add(row);
@@ -50,22 +49,21 @@ namespace BCAMonitor
             return table;
         }
 
-        public static async void MonitorBca()
+        public static void MonitorBca()
         {
-            //var driver = new ChromeDriver { Url = "www.google.com" };
+            DelayTimer.Stop();
+            DelayTimer.Start();
             var driver = new PhantomJSDriver { Url = "www.google.com" };
             try
             {
                 driver.Navigate().GoToUrl("https://www.bca.gov.sg/eservice/ProcessCDNew.aspx");
                 driver.FindElement(By.Id("btnSearchAgain")).Click();
                 driver.Manage().Timeouts().ImplicitlyWait(new TimeSpan(0, 0, 1));
-                //WebDriverWaitById(driver, "txtsearch1");
                 var input = driver.FindElement(By.Id("txtsearch1"));
                 input.Clear();
                 input.SendKeys("A1656-00003-2012%");
                 driver.FindElement(By.Id("btnSearch")).Click();
                 driver.Manage().Timeouts().ImplicitlyWait(new TimeSpan(0, 0, 1));
-                //WebDriverWaitById(driver, "table1");
                 var allRawRows = driver.FindElement(By.Id("Table1")).FindElements(By.TagName("tr")).ToList();
                 allRawRows.RemoveAt(0);
                 var rows = allRawRows.Select(row => row.FindElements(By.TagName("td"))).Select(rawRowElements => new BcaRow
@@ -75,9 +73,8 @@ namespace BCAMonitor
                 var insertedRows = Db.Query<BcaRowUpdateRecord>("[dbo].[UpsertBCAStatus]",
                     new { BcaRows = ConvertToDataTable(rows) }, commandType: CommandType.StoredProcedure);
 
-                if (!insertedRows.Any()) return;
 
-                //todo: Send table or updated content
+                if (!insertedRows.Any()) return;
                 var client = new SmtpClient("smtp.gmail.com", 587)
                 {
                     Credentials = new NetworkCredential("nwangsg@gmail.com", "wn12130124"),
@@ -85,21 +82,22 @@ namespace BCAMonitor
                 };
                 var message = GetMailMessageTemplate();
                 client.Send(message);
+                //todo: Send table or updated content
             }
             catch (Exception exception)
             {
                 Console.WriteLine(exception.Message);
+                Environment.Exit(0);
             }
             finally
             {
                 driver.Quit();
-                await Task.Delay(3600000);
             }
         }
 
         private static MailMessage GetMailMessageTemplate()
         {
-            MailMessage message = new MailMessage {From = new MailAddress("nwangsg@gmail.com")};
+            var message = new MailMessage {From = new MailAddress("nwangsg@gmail.com")};
             message.To.Add(new MailAddress("nwangsg@gmail.com"));
             message.Subject = "BCA Status Update";
             message.IsBodyHtml = true;
