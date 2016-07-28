@@ -7,6 +7,7 @@ using Dapper;
 using System.Linq;
 using System.Net;
 using System.Net.Mail;
+using System.Threading.Tasks;
 using OpenQA.Selenium;
 using OpenQA.Selenium.PhantomJS;
 using OpenQA.Selenium.Support.UI;
@@ -20,7 +21,10 @@ namespace BCAMonitor
         private static void Main(string[] args)
         {
             //todo: construct loop or put on jenkins
-            MonitorBca();
+            while (true)
+            {
+                MonitorBca();
+            }
         }
 
         //private static void WebDriverWaitById(IWebDriver driver, string idToFind)
@@ -44,10 +48,9 @@ namespace BCAMonitor
                 table.Rows.Add(row);
             }
             return table;
-
         }
 
-        public static void MonitorBca()
+        public static async void MonitorBca()
         {
             //var driver = new ChromeDriver { Url = "www.google.com" };
             var driver = new PhantomJSDriver { Url = "www.google.com" };
@@ -90,6 +93,7 @@ namespace BCAMonitor
             finally
             {
                 driver.Quit();
+                await Task.Delay(3600000);
             }
         }
 
