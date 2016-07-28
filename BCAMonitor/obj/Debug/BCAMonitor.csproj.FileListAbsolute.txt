@@ -10,3 +10,5 @@ E:\workspace\BCAMonitor\BCAMonitor\obj\Debug\BCAMonitor.pdb
 E:\workspace\BCAMonitor\BCAMonitor\bin\Debug\WebDriver.Support.dll
 E:\workspace\BCAMonitor\BCAMonitor\bin\Debug\WebDriver.Support.xml
 E:\workspace\BCAMonitor\BCAMonitor\obj\Debug\BCAMonitor.csprojResolveAssemblyReference.cache
+E:\workspace\BCAMonitor\BCAMonitor\bin\Debug\phantomjs.exe
+E:\workspace\BCAMonitor\BCAMonitor\bin\Debug\phantomjs-license.txt
